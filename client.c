@@ -7,15 +7,15 @@
 
 int main(int argc, char *argv[]) {
 
-    // Mem-parse argumen dari baris perintah dengan benar
-    char *alamat_ip;
+    // Correctly parse command line args
+    char *ip;
     char *port;
-    int perintah;
+    int command;
     
-    while ((perintah = getopt(argc, argv, "i:p:")) != -1) {
-        switch (perintah) {
+    while ((command = getopt(argc, argv, "i:p:")) != -1) {
+        switch (command) {
             case 'i':
-                alamat_ip = optarg;
+                ip = optarg;
                 break;
             case 'p':
                 port = optarg;
@@ -25,52 +25,52 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (alamat_ip == NULL || port == NULL) exit(EXIT_FAILURE);
+    if (ip == NULL || port == NULL) exit(EXIT_FAILURE);
 
-    int kode_keluar = 0;
+    int exit_code = 0;
 
-    rpc_client *status = rpc_inisialisasi_client("::1", 3000);
-    if (status == NULL) {
+    rpc_client *state = rpc_init_client("::1", 3000);
+    if (state == NULL) {
         exit(EXIT_FAILURE);
     }
 
-    rpc_pengelola *pengelola_tambah2 = rpc_cari(status, "tambah2");
-    if (pengelola_tambah2 == NULL) {
-        fprintf(stderr, "ERROR: Fungsi tambah2 tidak ada\n");
-        kode_keluar = 1;
-        goto bersihkan;
+    rpc_handle *handle_add2 = rpc_find(state, "add2");
+    if (handle_add2 == NULL) {
+        fprintf(stderr, "ERROR: Function add2 does not exist\n");
+        exit_code = 1;
+        goto cleanup;
     }
 
     for (int i = 0; i < 2; i++) {
-        /* Persiapkan permintaan */
-        char operand_kiri = i;
-        char operand_kanan = 100;
-        rpc_data data_permintaan = {
-            .data1 = operand_kiri, .data2_len = 1, .data2 = &operand_kanan};
+        /* Prepare request */
+        char left_operand = i;
+        char right_operand = 100;
+        rpc_data request_data = {
+            .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
 
-        /* Panggil dan terima respons */
-        rpc_data *data_respons = rpc_panggil(status, pengelola_tambah2, &data_permintaan);
-        if (data_respons == NULL) {
-            fprintf(stderr, "Panggilan fungsi tambah2 gagal\n");
-            kode_keluar = 1;
-            goto bersihkan;
+        /* Call and receive response */
+        rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
+        if (response_data == NULL) {
+            fprintf(stderr, "Function call of add2 failed\n");
+            exit_code = 1;
+            goto cleanup;
         }
 
-        /* Interpretasi respons */
-        assert(data_respons->data2_len == 0);
-        assert(data_respons->data2 == NULL);
-        printf("Hasil penambahan %d dan %d: %d\n", operand_kiri, operand_kanan,
-            data_respons->data1);
-        rpc_bebas_data(data_respons);
+        /* Interpret response */
+        assert(response_data->data2_len == 0);
+        assert(response_data->data2 == NULL);
+        printf("Result of adding %d and %d: %d\n", left_operand, right_operand,
+            response_data->data1);
+        rpc_data_free(response_data);
     }
 
-bersihkan:
-    if (pengelola_tambah2 != NULL) {
-        free(pengelola_tambah2);
+cleanup:
+    if (handle_add2 != NULL) {
+        free(handle_add2);
     }
 
-    rpc_tutup_client(status);
-    status = NULL;
+    rpc_close_client(state);
+    state = NULL;
 
-    return kode_keluar;
+    return exit_code;
 }
