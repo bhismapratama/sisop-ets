@@ -1,48 +1,69 @@
-#include "file_transfer.h"
+#include "rpc.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <string.h>
-#include <pthread.h>
 
-char* unduh_berkas(char *nama_berkas) {
-    FILE *berkas = fopen(nama_berkas, "r");
-    if (berkas == NULL) {
-        perror("salah buka berkas");
-        return NULL;
-    }
-    fseek(berkas, 0, SEEK_END);
-    long ukuran_berkas = ftell(berkas);
-    rewind(berkas);
-    char *isi = (char *)malloc(ukuran_berkas);
-    fread(isi, 1, ukuran_berkas, berkas);
-    fclose(berkas);
-    return isi;
-}
+rpc_data *tambahkan2_i8(rpc_data *);
 
-bool_t unduh_svc(char *nama_berkas, char **isi, struct svc_req *rqstp) {
-    *isi = unduh_berkas(nama_berkas);
-    return TRUE;
-}
+int main(int argc, char *argv[]) {
 
-void *jalankan_server(void *arg) {
-    if (!svc_create(unduh_1, FILE_TRANSFER_PROG, FILE_TRANSFER_VERS, "netpath")) {
-        fprintf(stderr, "gabis buat server\n");
-        exit(1);
-    }
-    svc_run();
-    fprintf(stderr, "svc_run \n");
-    exit(1);
-}
+    // parsning argumen dari baris perintah
+    char *port;
+    int perintah;
 
-int main() {
-    pthread_t thread;
-
-    if (pthread_create(&thread, NULL, jalankan_server, NULL)) {
-        fprintf(stderr, "gabisa buat thread\n");
-        exit(1);
+    // getopt
+    while ((perintah = getopt(argc, argv, "p:")) != -1) {
+        switch (perintah) {
+            case 'p':
+                port = optarg;
+                break;
+            default:
+                exit(EXIT_FAILURE);
+        }
     }
 
-    pthread_join(thread, NULL);
+    if (port == NULL) exit(EXIT_FAILURE);
+
+    rpc_server *status;
+
+    status = rpc_init_server(3000);
+    if (status == NULL) {
+        fprintf(stderr, "Gagal menginisialisasi\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (rpc_daftarkan(status, "tambahkan2", tambahkan2_i8) == -1) {
+        fprintf(stderr, "Gagal mendaftarkan fungsi tambahkan2\n");
+        exit(EXIT_FAILURE);
+    }
+
+    rpc_layani_semua(status);
 
     return 0;
+}
+
+rpc_data *tambahkan2_i8(rpc_data *masukan) {
+
+    /* Periksa data2 */
+    if (masukan->data2 == NULL || masukan->data2_len != 1) {
+        return NULL;
+    }
+
+    /* Parse permintaan */
+    char n1 = masukan->data1;
+    char n2 = ((char *)masukan->data2)[0];
+
+    /* Melakukan perhitungan */
+    printf("tambahkan2: argumen %d dan %d\n", n1, n2);
+    int hasil = n1 + n2;
+
+    /* Persiapkan respons */
+    rpc_data *keluaran = malloc(sizeof(rpc_data));
+    assert(keluaran != NULL);
+    keluaran->data1 = hasil;
+    keluaran->data2_len = 0;
+    keluaran->data2 = NULL;
+    return keluaran;
 }
