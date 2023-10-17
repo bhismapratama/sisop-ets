@@ -1,0 +1,36 @@
+Shane Sleeman
+sleemans
+1082313
+
+1. With the implementation, the server can accept calls from everyone - this is because the program (excluding latter tasks that I haven't implemented) are simulations for demonstration purposes, and hence restriction isn't needed. While the server accepts everyone, an ideal server would restrict accesses for security
+
+2. If authentication were to be implemented, it should be done in the RPC framework, as it's much easier to implement and consistent (i.e. in 1 place rather than multiple, which may even be unnecessarily duplicated)
+
+3. I'm using TCP, as it's simpler to implement, and will prevent losses or corrupt packets. Its tradeoff compared to UDP is that it's slower, however the causes of why it's slow are the same reasons why it's preferable in the first place (ordered delivery and retransmission)
+
+4. The server socket should be created when the server begins (rpc_init_server), and the client socket should be created when the client is going to make requests (rpc_find and rpc_call)
+
+5. Dynamically. Typically you don't know for certain how many clients or servers there will be, so dynamic memory allocation allows the program to only use the memory it needs (rather than overshoot by allotting a large amount of memory). The main implication is that with dynamic memory, one has to be wary of memory leaks
+
+6. Corruption, as they're incompatible. To enable different byte orders between hosts, converting to network byte order (which is big endian) as a common data medium, then converting back, helps
+
+Protocol:
+
+The App layer protocol goes through the following procedure:
+- Client connects to the server with IP and port number
+- Client tries to find a function, and if it exists, retrieves the function's location
+- Client uses a handle to call the function
+- Server executes function, returns Result
+- Client prints out the result
+- The client then makes multiple calls or exits
+
+Packets are structured with a:
+- Request type (FIND or CALL)
+- The name of the function, if FIND
+- The handle location and function, if CALL
+
+My data block is fixed-size, for simplicity. 
+
+The server returns -1 for nonexistent functions, and when the data length is too large.
+
+When a message exceeds the max IP packet size, TCP/IP will fragment and reassemble this. 
